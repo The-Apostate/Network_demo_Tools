@@ -1,0 +1,558 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.27.1.19265",
+      "templateHash": "13121193639858105181"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "uksouth"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "networkSouthDeployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "hubName": {
+            "value": "vnet_south_hub"
+          },
+          "hubAddressSpace": {
+            "value": "10.0.0.0/16"
+          },
+          "hubSubnets": {
+            "value": [
+              {
+                "name": "AzureFirewallSubnet",
+                "cidr": "10.0.0.0/27"
+              },
+              {
+                "name": "AzureBastionSubnet",
+                "cidr": "10.0.0.32/27"
+              },
+              {
+                "name": "Security",
+                "cidr": "10.0.1.0/24"
+              },
+              {
+                "name": "GatewaySubnet",
+                "cidr": "10.0.255.0/27"
+              }
+            ]
+          },
+          "spokes": {
+            "value": [
+              {
+                "name": "vnet_south_spoke1",
+                "addressSpace": "10.1.0.0/16",
+                "subnets": [
+                  {
+                    "name": "Virtual_Machines",
+                    "cidr": "10.1.0.0/24"
+                  },
+                  {
+                    "name": "south_subnet1",
+                    "cidr": "10.1.1.0/24"
+                  },
+                  {
+                    "name": "Data",
+                    "cidr": "10.1.2.0/24"
+                  }
+                ]
+              },
+              {
+                "name": "vnet_south_spoke2",
+                "addressSpace": "10.2.0.0/16",
+                "subnets": [
+                  {
+                    "name": "Virtual_Machines",
+                    "cidr": "10.2.0.0/24"
+                  },
+                  {
+                    "name": "south_subnet2",
+                    "cidr": "10.2.1.0/24"
+                  },
+                  {
+                    "name": "Data",
+                    "cidr": "10.2.2.0/24"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.27.1.19265",
+              "templateHash": "11225566605746576295"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "hubName": {
+              "type": "string"
+            },
+            "hubAddressSpace": {
+              "type": "string"
+            },
+            "hubSubnets": {
+              "type": "array"
+            },
+            "spokes": {
+              "type": "array"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2021-02-01",
+              "name": "[parameters('hubName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "copy": [
+                  {
+                    "name": "subnets",
+                    "count": "[length(parameters('hubSubnets'))]",
+                    "input": {
+                      "name": "[parameters('hubSubnets')[copyIndex('subnets')].name]",
+                      "properties": {
+                        "addressPrefix": "[parameters('hubSubnets')[copyIndex('subnets')].cidr]"
+                      }
+                    }
+                  }
+                ],
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('hubAddressSpace')]"
+                  ]
+                }
+              }
+            },
+            {
+              "copy": {
+                "name": "spokeVnets",
+                "count": "[length(parameters('spokes'))]"
+              },
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2021-02-01",
+              "name": "[parameters('spokes')[copyIndex()].name]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "copy": [
+                  {
+                    "name": "subnets",
+                    "count": "[length(parameters('spokes')[copyIndex()].subnets)]",
+                    "input": {
+                      "name": "[parameters('spokes')[copyIndex()].subnets[copyIndex('subnets')].name]",
+                      "properties": {
+                        "addressPrefix": "[parameters('spokes')[copyIndex()].subnets[copyIndex('subnets')].cidr]"
+                      }
+                    }
+                  }
+                ],
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('spokes')[copyIndex()].addressSpace]"
+                  ]
+                }
+              }
+            },
+            {
+              "copy": {
+                "name": "vnetPeering",
+                "count": "[length(parameters('spokes'))]"
+              },
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2021-02-01",
+              "name": "[format('{0}/{1}', parameters('hubName'), format('{0}-to-{1}', parameters('hubName'), parameters('spokes')[copyIndex()].name))]",
+              "properties": {
+                "allowVirtualNetworkAccess": true,
+                "remoteVirtualNetwork": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('spokes')[copyIndex()].name)]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('hubName'))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "vnetPeering2",
+                "count": "[length(parameters('spokes'))]"
+              },
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2021-02-01",
+              "name": "[format('{0}/{1}', parameters('spokes')[copyIndex()].name, format('{0}-to-{1}', parameters('spokes')[copyIndex()].name, parameters('hubName')))]",
+              "properties": {
+                "allowVirtualNetworkAccess": true,
+                "remoteVirtualNetwork": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('hubName'))]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('hubName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('spokes')[copyIndex()].name)]"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "networkWestDeployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "ukwest"
+          },
+          "hubName": {
+            "value": "vnet_west_hub"
+          },
+          "hubAddressSpace": {
+            "value": "172.16.0.0/16"
+          },
+          "hubSubnets": {
+            "value": [
+              {
+                "name": "AzureFirewallSubnet",
+                "cidr": "172.16.0.0/27"
+              },
+              {
+                "name": "AzureBastionSubnet",
+                "cidr": "172.16.0.32/27"
+              },
+              {
+                "name": "Security",
+                "cidr": "172.16.1.0/24"
+              },
+              {
+                "name": "GatewaySubnet",
+                "cidr": "172.16.255.0/27"
+              }
+            ]
+          },
+          "spokes": {
+            "value": [
+              {
+                "name": "vnet_west_spoke1",
+                "addressSpace": "172.17.0.0/16",
+                "subnets": [
+                  {
+                    "name": "Virtual_Machines",
+                    "cidr": "172.17.0.0/24"
+                  },
+                  {
+                    "name": "west_subnet1",
+                    "cidr": "172.17.1.0/24"
+                  },
+                  {
+                    "name": "Data",
+                    "cidr": "172.17.2.0/24"
+                  }
+                ]
+              },
+              {
+                "name": "vnet_west_spoke2",
+                "addressSpace": "172.18.0.0/16",
+                "subnets": [
+                  {
+                    "name": "Virtual_Machines",
+                    "cidr": "172.18.0.0/24"
+                  },
+                  {
+                    "name": "west_subnet2",
+                    "cidr": "172.18.1.0/24"
+                  },
+                  {
+                    "name": "Data",
+                    "cidr": "172.18.2.0/24"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.27.1.19265",
+              "templateHash": "11225566605746576295"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "hubName": {
+              "type": "string"
+            },
+            "hubAddressSpace": {
+              "type": "string"
+            },
+            "hubSubnets": {
+              "type": "array"
+            },
+            "spokes": {
+              "type": "array"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2021-02-01",
+              "name": "[parameters('hubName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "copy": [
+                  {
+                    "name": "subnets",
+                    "count": "[length(parameters('hubSubnets'))]",
+                    "input": {
+                      "name": "[parameters('hubSubnets')[copyIndex('subnets')].name]",
+                      "properties": {
+                        "addressPrefix": "[parameters('hubSubnets')[copyIndex('subnets')].cidr]"
+                      }
+                    }
+                  }
+                ],
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('hubAddressSpace')]"
+                  ]
+                }
+              }
+            },
+            {
+              "copy": {
+                "name": "spokeVnets",
+                "count": "[length(parameters('spokes'))]"
+              },
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2021-02-01",
+              "name": "[parameters('spokes')[copyIndex()].name]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "copy": [
+                  {
+                    "name": "subnets",
+                    "count": "[length(parameters('spokes')[copyIndex()].subnets)]",
+                    "input": {
+                      "name": "[parameters('spokes')[copyIndex()].subnets[copyIndex('subnets')].name]",
+                      "properties": {
+                        "addressPrefix": "[parameters('spokes')[copyIndex()].subnets[copyIndex('subnets')].cidr]"
+                      }
+                    }
+                  }
+                ],
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[parameters('spokes')[copyIndex()].addressSpace]"
+                  ]
+                }
+              }
+            },
+            {
+              "copy": {
+                "name": "vnetPeering",
+                "count": "[length(parameters('spokes'))]"
+              },
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2021-02-01",
+              "name": "[format('{0}/{1}', parameters('hubName'), format('{0}-to-{1}', parameters('hubName'), parameters('spokes')[copyIndex()].name))]",
+              "properties": {
+                "allowVirtualNetworkAccess": true,
+                "remoteVirtualNetwork": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('spokes')[copyIndex()].name)]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('hubName'))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "vnetPeering2",
+                "count": "[length(parameters('spokes'))]"
+              },
+              "type": "Microsoft.Network/virtualNetworks/virtualNetworkPeerings",
+              "apiVersion": "2021-02-01",
+              "name": "[format('{0}/{1}', parameters('spokes')[copyIndex()].name, format('{0}-to-{1}', parameters('spokes')[copyIndex()].name, parameters('hubName')))]",
+              "properties": {
+                "allowVirtualNetworkAccess": true,
+                "remoteVirtualNetwork": {
+                  "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('hubName'))]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('hubName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', parameters('spokes')[copyIndex()].name)]"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2022-09-01",
+      "name": "expressRouteGatewaySouthDeployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "gatewayName": {
+            "value": "erGatewaySouth"
+          },
+          "virtualNetworkName": {
+            "value": "vnet_south_hub"
+          },
+          "publicIpName": {
+            "value": "erGatewaySouthPublicIP"
+          },
+          "skuName": {
+            "value": "Standard"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.27.1.19265",
+              "templateHash": "4531306057063649550"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "gatewayName": {
+              "type": "string"
+            },
+            "virtualNetworkName": {
+              "type": "string"
+            },
+            "subnetName": {
+              "type": "string",
+              "defaultValue": "GatewaySubnet"
+            },
+            "publicIpName": {
+              "type": "string"
+            },
+            "skuName": {
+              "type": "string",
+              "defaultValue": "Standard"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2021-02-01",
+              "name": "[format('{0}-1', parameters('publicIpName'))]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "idleTimeoutInMinutes": 4
+              }
+            },
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2021-02-01",
+              "name": "[format('{0}-2', parameters('publicIpName'))]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Standard"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Static",
+                "idleTimeoutInMinutes": 4
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworkGateways",
+              "apiVersion": "2021-02-01",
+              "name": "[parameters('gatewayName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "sku": {
+                  "name": "[parameters('skuName')]",
+                  "tier": "[parameters('skuName')]"
+                },
+                "gatewayType": "ExpressRoute",
+                "vpnType": "RouteBased",
+                "enableBgp": false,
+                "activeActive": true,
+                "ipConfigurations": [
+                  {
+                    "name": "gwipconfig1",
+                    "properties": {
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', format('{0}-1', parameters('publicIpName')))]"
+                      },
+                      "subnet": {
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('subnetName'))]"
+                      }
+                    }
+                  },
+                  {
+                    "name": "gwipconfig2",
+                    "properties": {
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', format('{0}-2', parameters('publicIpName')))]"
+                      },
+                      "subnet": {
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('subnetName'))]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', format('{0}-1', parameters('publicIpName')))]",
+                "[resourceId('Microsoft.Network/publicIPAddresses', format('{0}-2', parameters('publicIpName')))]"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
