@@ -83,6 +83,6 @@ module expressRouteGatewaySouth 'ExpressRouteGatewayModule.bicep' = {
     gatewayName: 'erGatewaySouth'
     virtualNetworkName: 'vnet_south_hub'
     publicIpName: 'erGatewaySouthPublicIP'
-    skuName: 'Standard'
+    skuName: 'VpnGw1' // Ensure this matches the updated SKU
   }
 }
