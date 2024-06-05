@@ -3,7 +3,7 @@ param gatewayName string
 param virtualNetworkName string
 param subnetName string = 'GatewaySubnet'
 param publicIpName string
-param skuName string = 'VpnGw1' // Use a valid SKU for Vpn type
+param skuName string = 'VpnGw1' // Valid SKU for RouteBased VpnType
 
 // Create the Public IP addresses for the ExpressRoute Gateway
 resource publicIp1 'Microsoft.Network/publicIPAddresses@2021-02-01' = {
@@ -37,10 +37,10 @@ resource expressRouteGateway 'Microsoft.Network/virtualNetworkGateways@2021-02-0
   properties: {
     sku: {
       name: skuName
-      tier: 'VpnGw1' // Ensure the tier matches the SKU
+      tier: skuName // Use the same value for tier
     }
-    gatewayType: 'Vpn'
-    vpnType: 'RouteBased' // Correctly set for RouteBased type
+    gatewayType: 'Vpn' // Must be 'Vpn' for VpnType 'RouteBased'
+    vpnType: 'RouteBased' // Valid for RouteBased
     enableBgp: false
     activeActive: true
     ipConfigurations: [
