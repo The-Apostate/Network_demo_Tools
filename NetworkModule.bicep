@@ -4,6 +4,7 @@ param hubAddressSpace string
 param hubSubnets array
 param spokes array
 
+// Create the hub virtual network
 resource hubVnet 'Microsoft.Network/virtualNetworks@2021-02-01' = {
   name: hubName
   location: location
@@ -24,6 +25,7 @@ resource hubVnet 'Microsoft.Network/virtualNetworks@2021-02-01' = {
   }
 }
 
+// Create the spoke virtual networks
 resource spokeVnets 'Microsoft.Network/virtualNetworks@2021-02-01' = [for spoke in spokes: {
   name: spoke.name
   location: location
@@ -44,6 +46,7 @@ resource spokeVnets 'Microsoft.Network/virtualNetworks@2021-02-01' = [for spoke 
   }
 }]
 
+// Create virtual network peerings from hub to spokes
 resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2021-02-01' = [
   for (spoke, i) in spokes: {
     name: '${hubName}-to-${spoke.name}'
@@ -57,6 +60,7 @@ resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2
   }
 ]
 
+// Create virtual network peerings from spokes to hub
 resource vnetPeering2 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2021-02-01' = [
   for (spoke, i) in spokes: {
     name: '${spoke.name}-to-${hubName}'
