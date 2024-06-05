@@ -40,7 +40,7 @@ resource expressRouteGateway 'Microsoft.Network/virtualNetworkGateways@2021-02-0
       tier: skuName
     }
     gatewayType: 'ExpressRoute'
-    vpnType: 'RouteBased'
+    vpnType: 'Vpn' // Changed from 'RouteBased' to 'Vpn'
     enableBgp: false
     activeActive: true
     ipConfigurations: [
